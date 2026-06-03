@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Staircraft">
+<meta name="theme-color" content="#0f0f0f">
+<title>Staircraft — Production Command Centre</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f0f;--bg2:#1a1a1a;--bg3:#222;--bg4:#2a2a2a;
+  --text:#e8e6de;--text2:#888780;--text3:#555350;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --red:#E24B4A;--red-bg:#2d1010;--red-text:#F09595;
+  --amber:#EF9F27;--amber-bg:#2d1e06;--amber-text:#FAC775;
+  --green:#639922;--green-bg:#1a2a08;--green-text:#C0DD97;
+  --mono:'Share Tech Mono',monospace;--sans:'Barlow',sans-serif;
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+.header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:0.5px solid var(--border2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.header-logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:32px;height:32px;background:var(--text);clip-path:polygon(0 20%,50% 0,100% 20%,100% 80%,50% 100%,0 80%);flex-shrink:0}
+.header-title{font-size:14px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);line-height:1.1}
+.header-sub{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:1px}
+.refresh-btn{background:var(--bg3);border:0.5px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent}
+.refresh-btn:active{background:var(--bg4)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.alert-bar{display:none;padding:9px 16px;font-family:var(--mono);font-size:11px;letter-spacing:0.3px;border-bottom:0.5px solid var(--border)}
+.alert-bar.red{display:block;background:var(--red-bg);color:var(--red-text);border-color:var(--red)}
+.alert-bar.amber{display:block;background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber)}
+.alert-bar.ok{display:block;background:var(--green-bg);color:var(--green-text);border-color:var(--green)}
+
+.section{padding:16px;border-bottom:0.5px solid var(--border)}
+.section-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:12px}
+
+.pipeline-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:480px){.pipeline-grid{grid-template-columns:repeat(4,1fr)}}
+.gauge-card{background:var(--bg2);border:0.5px solid var(--border2);border-radius:10px;padding:12px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;overflow:hidden}
+.gauge-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.gauge-card.sr::before{background:var(--red)}
+.gauge-card.sa::before{background:var(--amber)}
+.gauge-card.sg::before{background:var(--green)}
+.gauge-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text2);text-align:center;font-family:var(--mono);line-height:1.3}
+.gauge-value{font-size:28px;font-weight:800;font-family:var(--mono);line-height:1;letter-spacing:-1px}
+.vr{color:var(--red)}.va{color:var(--amber)}.vg{color:var(--green)}
+.gauge-badge{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px}
+.br{background:var(--red-bg);color:var(--red-text)}.ba{background:var(--amber-bg);color:var(--amber-text)}.bg{background:var(--green-bg);color:var(--green-text)}
+.gauge-track{width:100%;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-top:2px}
+.gauge-fill{height:100%;border-radius:2px;transition:width 0.6s ease}
+.fr{background:var(--red)}.fa{background:var(--amber)}.fg{background:var(--green)}
+
+.queue-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.queue-scroll::-webkit-scrollbar{display:none}
+.queue-card{flex-shrink:0;min-width:130px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:8px;padding:10px 12px}
+.queue-dept{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:4px}
+.queue-id{font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);line-height:1}
+.queue-date{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:3px}
+.queue-pos{font-size:11px;color:var(--amber);font-family:var(--mono);margin-top:2px;font-weight:600}
+
+.time-tabs{display:flex;gap:4px;margin-bottom:12px}
+.tab-btn{font-size:10px;font-family:var(--mono);padding:5px 10px;border-radius:5px;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.15s}
+.tab-btn.active{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:700}
+.lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;margin-bottom:5px}
+.lb-rank{font-size:10px;font-family:var(--mono);color:var(--text3);min-width:16px}
+.lb-init{font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);min-width:34px}
+.lb-bar-track{flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.lb-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#3B6D11,#8BC34A);transition:width 0.5s ease}
+.lb-stairs{font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);min-width:44px;text-align:right}
+.lb-jobs{font-size:10px;color:var(--text3);font-family:var(--mono);min-width:44px;text-align:right}
+
+.search-wrap{display:flex;gap:8px;margin-bottom:10px}
+.search-input{flex:1;background:var(--bg2);border:0.5px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 12px;border-radius:8px;outline:none;-webkit-appearance:none}
+.search-input:focus{border-color:var(--text2)}
+.search-input::placeholder{color:var(--text3)}
+.search-btn{background:var(--bg3);border:0.5px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:11px;padding:9px 14px;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.search-btn:active{background:var(--bg4)}
+.job-card{background:var(--bg2);border:0.5px solid var(--border2);border-radius:8px;padding:12px;margin-bottom:6px}
+.job-meta{display:flex;flex-wrap:wrap;gap:10px;font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:10px}
+.job-meta strong{color:var(--text);font-size:12px}
+.stage-pills{display:flex;flex-wrap:wrap;gap:5px}
+.pill{font-size:9px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:4px 8px;border-radius:4px}
+.pill-done{background:var(--green-bg);color:var(--green-text)}
+.pill-todo{background:var(--bg4);color:var(--text3);border:0.5px solid var(--border)}
+
+.loading{text-align:center;padding:48px 20px;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.ldots::after{content:'';animation:ldots 1.4s infinite}
+@keyframes ldots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:''}}
+
+.install-hint{margin:12px 16px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);display:none;align-items:center;gap:8px}
+.install-hint button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;margin-left:auto;padding:0 4px}
+
+.footer{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.5px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-logo">
+      <div class="logo-mark"></div>
+      <div>
+        <div class="header-title">Staircraft</div>
+        <div class="header-sub" id="last-updated">Connecting...</div>
+      </div>
+    </div>
+    <button class="refresh-btn" onclick="loadAll()" id="refresh-btn">
+      <svg id="ricon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Refresh
+    </button>
+  </div>
+  <div class="alert-bar" id="alert-bar"></div>
+  <div class="install-hint" id="install-hint">
+    <span>📲 Tap Share → Add to Home Screen for app experience</span>
+    <button onclick="this.parentElement.style.display='none'">✕</button>
+  </div>
+  <div id="main"><div class="loading">Loading production data<span class="ldots"></span></div></div>
+</div>
+
+<script>
+const API_KEY  = 'AIzaSyC7LqaHIyCp7qcHSbrC8EjufPD_qGiZD-M';
+const SHEET_ID = '15aEtpNIDILzw_2n_KYWkBCefakqSt36jzGWredct3J4';
+const BASE     = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+
+const THRESH = {
+  'OFFICE TO CNC':               {zones:[[50,200,'r'],[200,350,'a'],[350,500,'g'],[500,650,'a'],[650,800,'r']],max:800},
+  'ASSEMBLY':                    {zones:[[0,50,'r'],[50,100,'a'],[100,150,'g'],[150,200,'a'],[200,250,'r']],max:250},
+  'STACKED':                     {zones:[[0,50,'r'],[50,100,'a'],[100,150,'g'],[150,200,'a'],[200,250,'r']],max:250},
+  'POSTS TO ASSEMBLY':           {zones:[[800,1000,'r'],[1000,1200,'a'],[1200,1400,'g'],[1400,1600,'a'],[1600,1800,'r']],max:1800},
+  'WINDERS TO ASSEMBLY':         {zones:[[800,1000,'r'],[1000,1200,'a'],[1200,1400,'g'],[1400,1600,'a'],[1600,1800,'r']],max:1800},
+  'STRINGS TO ASSEMBLY':         {zones:[[300,400,'r'],[400,500,'a'],[500,600,'g'],[600,700,'a'],[700,800,'r']],max:800},
+  'TREADS & RISERS TO ASSEMBLY': {zones:[[0,50,'r'],[50,100,'a'],[100,150,'g'],[150,200,'a'],[200,250,'r']],max:250},
+  'BULLNOSE TO DISPATCH':        {zones:[[0,50,'r'],[50,100,'a'],[100,150,'g'],[150,200,'a'],[200,250,'r']],max:250},
+};
+const LABELS = {
+  'OFFICE TO CNC':'Office→CNC','ASSEMBLY':'Assembly','STACKED':'Stacked',
+  'POSTS TO ASSEMBLY':'Posts','WINDERS TO ASSEMBLY':'Winders',
+  'STRINGS TO ASSEMBLY':'Strings','TREADS & RISERS TO ASSEMBLY':'Treads & Risers',
+  'BULLNOSE TO DISPATCH':'Bullnose'
+};
+
+function getSt(key,val){
+  const t=THRESH[key];if(!t)return'g';
+  for(const[lo,hi,c]of t.zones)if(val>=lo&&val<hi)return c;
+  return'r';
+}
+function getPct(key,val){
+  const t=THRESH[key];if(!t)return 50;
+  return Math.min(100,Math.round((val/t.max)*100));
+}
+const SLABEL={r:'RED',a:'AMBER',g:'GREEN'};
+const SLONG={r:'red',a:'amber',g:'green'};
+
+let buffers={},queueInfo={},jobs=[],activeTab='24h';
+
+async function fetchRange(range){
+  const r=await fetch(`${BASE}/${encodeURIComponent(range)}?key=${API_KEY}`);
+  if(!r.ok){
+    const txt=await r.text();
+    throw new Error(`Sheets API ${r.status} — check the sheet is shared publicly (Anyone with link → Viewer)`);
+  }
+  const d=await r.json();
+  return d.values||[];
+}
+
+async function loadAll(){
+  setSpinning(true);
+  document.getElementById('last-updated').textContent='Loading...';
+  try{
+    const[looker,main]=await Promise.all([
+      fetchRange("'Looker Source data'!A1:AJ20"),
+      fetchRange("'2026'!A2:U2000")
+    ]);
+    parseLooker(looker);
+    parseMain(main);
+    render();
+    const n=new Date();
+    document.getElementById('last-updated').textContent=
+      'Updated '+n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+' · '+jobs.length+' jobs';
+  }catch(e){
+    showErr(e.message);
+    document.getElementById('last-updated').textContent='Load failed';
+  }
+  setSpinning(false);
+}
+
+function parseLooker(rows){
+  buffers={};queueInfo={};
+  const BK=['OFFICE TO CNC','ASSEMBLY','STACKED','POSTS TO ASSEMBLY','WINDERS TO ASSEMBLY','STRINGS TO ASSEMBLY','TREADS & RISERS TO ASSEMBLY','BULLNOSE TO DISPATCH'];
+  for(const row of rows){
+    const f=(row[0]||'').toString().trim().toUpperCase();
+    if(BK.includes(f)){
+      const v=parseInt((row[3]||'').toString().replace(/,/g,''));
+      if(!isNaN(v))buffers[f]=v;
+    }
+    const hasDate=row.some(c=>/wednesday|monday|tuesday|thursday|friday|saturday|sunday/i.test(c||''));
+    if(hasDate&&row.length>10&&!queueInfo.OFFICE){
+      const g=i=>(row[i]||'').toString().trim();
+      // Shorten date helper
+      const sd=s=>s.replace(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday),?\s*/i,'');
+      queueInfo={
+        OFFICE:  {date:sd(g(8)), id:g(9), pos:g(10)},
+        CNC:     {date:sd(g(11)),id:g(12),pos:g(13)},
+        ASSEMBLY:{date:sd(g(26)),id:g(27),pos:g(28)},
+        STACKED: {date:sd(g(29)),id:g(30),pos:g(31)},
+        DISPATCH:{date:sd(g(32)),id:g(33),pos:g(34)},
+      };
+    }
+  }
+}
+
+function parseMain(rows){
+  jobs=[];
+  for(const row of rows){
+    if(!row[0]||!row[2])continue;
+    const ds=(row[0]||'').toString().trim();
+    if(!/\d{2}[-\/]\d{2}[-\/]\d{2,4}/.test(ds))continue;
+    jobs.push({
+      date:ds,time:(row[1]||'').toString().trim(),
+      initials:(row[2]||'').toString().trim().toUpperCase(),
+      delivery:(row[4]||'').toString().trim(),
+      load:(row[5]||'').toString().trim(),
+      stairs:parseInt(row[6])||0,
+      paperwork:b(row[11]),postsDone:b(row[12]),windersDone:b(row[13]),
+      stringsDone:b(row[14]),treads:b(row[15]),bullnoseDone:b(row[16]),
+      assembly:b(row[17]),stacked:b(row[18]),dispatch:b(row[19]),
+    });
+  }
+}
+function b(v){return(v||'').toString().toUpperCase()==='TRUE'}
+
+function parseDate(s){
+  const p=s.replace(/\//g,'-').split('-');
+  if(p.length<3)return null;
+  let y=parseInt(p[2]);if(y<100)y+=2000;
+  return new Date(y,parseInt(p[1])-1,parseInt(p[0]));
+}
+function jobsForPeriod(period){
+  const now=new Date();
+  return jobs.filter(j=>{
+    const d=parseDate(j.date);if(!d)return false;
+    if(period==='24h')return(now-d)<=86400000;
+    if(period==='7d') return(now-d)<=604800000;
+    return true;
+  });
+}
+
+function render(){
+  renderAlert();
+  document.getElementById('main').innerHTML=
+    renderPipeline()+renderQueue()+renderLeaderboard()+renderTracker();
+  bindTabs();bindSearch();
+}
+
+function renderAlert(){
+  const bar=document.getElementById('alert-bar');
+  const reds=[],ambers=[];
+  for(const[k,v]of Object.entries(buffers)){
+    const s=getSt(k,v);
+    if(s==='r')reds.push(`${LABELS[k]}=${v}`);
+    else if(s==='a')ambers.push(`${LABELS[k]}=${v}`);
+  }
+  if(reds.length){bar.className='alert-bar red';bar.innerHTML='🔴 CRITICAL &nbsp;·&nbsp; '+reds.join(' &nbsp;|&nbsp; ');}
+  else if(ambers.length){bar.className='alert-bar amber';bar.innerHTML='🟡 WARNING &nbsp;·&nbsp; '+ambers.join(' &nbsp;|&nbsp; ');}
+  else if(Object.keys(buffers).length){bar.className='alert-bar ok';bar.innerHTML='✅ All pipelines within range';}
+  else{bar.className='alert-bar';}
+}
+
+function renderPipeline(){
+  const cards=Object.keys(THRESH).map(key=>{
+    const val=buffers[key];
+    const disp=val!==undefined?val:'—';
+    const s=val!==undefined?getSt(key,val):'g';
+    const pct=val!==undefined?getPct(key,val):0;
+    return `<div class="gauge-card s${s}">
+      <div class="gauge-label">${LABELS[key]}</div>
+      <div class="gauge-value v${s}">${disp}</div>
+      <div class="gauge-badge b${s}">${SLABEL[s]}</div>
+      <div class="gauge-track"><div class="gauge-fill f${s}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+  return `<div class="section"><div class="section-title">Pipeline Buffer Status</div><div class="pipeline-grid">${cards}</div></div>`;
+}
+
+function renderQueue(){
+  const depts=['OFFICE','CNC','ASSEMBLY','STACKED','DISPATCH'];
+  const cards=depts.map(d=>{
+    const q=queueInfo[d];
+    if(!q||!q.id)return`<div class="queue-card"><div class="queue-dept">${d}</div><div class="queue-id" style="color:var(--text3);font-size:12px">—</div></div>`;
+    return`<div class="queue-card">
+      <div class="queue-dept">${d}</div>
+      <div class="queue-id">${q.id}</div>
+      <div class="queue-date">${q.date}</div>
+      <div class="queue-pos">${q.pos}</div>
+    </div>`;
+  }).join('');
+  return`<div class="section"><div class="section-title">Front of Queue — Oldest Job per Stage</div><div class="queue-scroll">${cards}</div></div>`;
+}
+
+function buildLB(period){
+  const rows=jobsForPeriod(period);
+  const tot={},cnt={};
+  for(const r of rows){
+    const i=r.initials;if(!i||i.length>3)continue;
+    tot[i]=(tot[i]||0)+r.stairs;cnt[i]=(cnt[i]||0)+1;
+  }
+  const sorted=Object.entries(tot).sort((a,b)=>b[1]-a[1]);
+  const maxS=sorted[0]?.[1]||1;
+  return sorted.length?sorted.map(([init,stairs],i)=>{
+    const pct=Math.round((stairs/maxS)*100);
+    return`<div class="lb-row">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-init">${init}</div>
+      <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${pct}%"></div></div>
+      <div class="lb-stairs">${stairs.toLocaleString()}</div>
+      <div class="lb-jobs">${cnt[init]} job${cnt[init]!==1?'s':''}</div>
+    </div>`;
+  }).join(''):`<div style="color:var(--text3);font-family:var(--mono);font-size:11px;padding:8px 0">No data for this period</div>`;
+}
+
+function renderLeaderboard(){
+  const tabs=['24h','7d','all'].map(t=>{
+    const label=t==='24h'?'Last 24h':t==='7d'?'Last 7 days':'All time';
+    return`<button class="tab-btn${activeTab===t?' active':''}" data-tab="${t}">${label}</button>`;
+  }).join('');
+  return`<div class="section">
+    <div class="section-title">Programmer Output — Stairs Completed</div>
+    <div class="time-tabs">${tabs}</div>
+    <div id="lb">${buildLB(activeTab)}</div>
+  </div>`;
+}
+
+function renderTracker(){
+  return`<div class="section">
+    <div class="section-title">Job Tracker — Search Load No</div>
+    <div class="search-wrap">
+      <input class="search-input" id="jinput" type="text" placeholder="#109734 or just 109734..." />
+      <button class="search-btn" onclick="doSearch()">Find</button>
+    </div>
+    <div id="jresult"></div>
+  </div>
+  <div class="footer"><span>STAIRCRAFT GROUP</span><span>${jobs.length} JOBS · 2026</span></div>`;
+}
+
+function bindTabs(){
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      activeTab=btn.dataset.tab;
+      document.querySelectorAll('.tab-btn[data-tab]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('lb').innerHTML=buildLB(activeTab);
+    });
+  });
+}
+
+function bindSearch(){
+  const inp=document.getElementById('jinput');
+  if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+}
+
+function doSearch(){
+  const inp=document.getElementById('jinput');
+  const q=(inp?.value||'').replace('#','').trim().toLowerCase();
+  if(!q)return;
+  const found=jobs.filter(r=>r.load.replace('#','').toLowerCase().includes(q));
+  const el=document.getElementById('jresult');
+  if(!found.length){
+    el.innerHTML=`<div class="job-card" style="color:var(--text2);font-family:var(--mono);font-size:12px">No job found for "${inp.value}"</div>`;
+    return;
+  }
+  el.innerHTML=found.map(r=>{
+    const stages=[
+      ['Programmed',r.paperwork],['CNC Posts',r.postsDone],['CNC Winders',r.windersDone],
+      ['CNC Strings',r.stringsDone],['Treads',r.treads],['Bullnose',r.bullnoseDone],
+      ['Assembly',r.assembly],['Stacked',r.stacked],['Dispatched',r.dispatch],
+    ];
+    return`<div class="job-card">
+      <div class="job-meta">
+        <span>Load <strong>${r.load}</strong></span>
+        <span>By <strong>${r.initials}</strong></span>
+        <span><strong>${r.stairs}</strong> stairs</span>
+        <span>Start <strong>${r.date}</strong></span>
+        <span>Delivery <strong>${r.delivery}</strong></span>
+      </div>
+      <div class="stage-pills">${stages.map(([l,d])=>`<span class="pill ${d?'pill-done':'pill-todo'}">${l}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function setSpinning(on){
+  const btn=document.getElementById('refresh-btn');
+  const icon=document.getElementById('ricon');
+  btn.disabled=on;
+  on?icon.classList.add('spin'):icon.classList.remove('spin');
+}
+
+function showErr(msg){
+  document.getElementById('main').innerHTML=`<div class="loading" style="color:var(--red-text)">
+    ⚠ ${msg}<br><br>
+    <button onclick="loadAll()" style="background:var(--bg3);border:0.5px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:11px;padding:8px 16px;border-radius:6px;cursor:pointer">Try Again</button>
+  </div>`;
+}
+
+// Show install hint on mobile browsers (not standalone)
+if(!window.matchMedia('(display-mode:standalone)').matches&&/iphone|ipad|ipod|android/i.test(navigator.userAgent)){
+  document.getElementById('install-hint').style.display='flex';
+}
+
+loadAll();
+</script>
+</body>
+</html>

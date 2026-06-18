@@ -130,7 +130,7 @@
 
 <script>
 // ── CONFIG — REPLACE THIS WITH YOUR GOOGLE OAUTH CLIENT ID ──────────────────
-const CLIENT_ID = '221118850043-50en13nq72a9tmp0j24jbnl21nag541s.apps.googleusercontent.com';
+const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 // ────────────────────────────────────────────────────────────────────────────
 
 let accessToken = null;
@@ -175,7 +175,7 @@ function initGoogleAuth() {
     // Called by Google's onload callback once GIS has loaded
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly',
         callback: (response) => {
             if (response.error) {
                 setStatusError('Google sign-in failed: ' + response.error);
@@ -213,23 +213,31 @@ async function driveGet(endpoint) {
 }
 
 async function findLoadFolder(loadNum) {
-    const q = encodeURIComponent(`name contains '${loadNum}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-    const data = await driveGet(`/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=20`);
+    // Strip # if user typed it
+    const num = loadNum.replace(/^#/, '');
+    // Search across all drives including shared drives
+    const q = encodeURIComponent("name contains '" + num + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    const data = await driveGet(
+        '/drive/v3/files?q=' + q + '&fields=files(id,name,parents)&pageSize=50&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives'
+    );
     const folders = data.files || [];
-    return folders.find(f => f.name.startsWith(loadNum)) || folders[0] || null;
+    const exact = folders.find(f => f.name.startsWith('#' + num) || f.name.startsWith(num));
+    return exact || folders[0] || null;
 }
 
 async function findFileInFolder(folderId, ...names) {
     for (const name of names) {
-        const q = encodeURIComponent(`'${folderId}' in parents and name='${name}' and trashed=false`);
-        const data = await driveGet(`/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=5`);
+        const q = encodeURIComponent("'" + folderId + "' in parents and name='" + name + "' and trashed=false");
+        const data = await driveGet(
+            '/drive/v3/files?q=' + q + '&fields=files(id,name,mimeType)&pageSize=5&includeItemsFromAllDrives=true&supportsAllDrives=true'
+        );
         if (data.files && data.files.length > 0) return data.files[0];
     }
     return null;
 }
 
 async function downloadFileAsBase64(fileId) {
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, {
         headers: { 'Authorization': 'Bearer ' + accessToken }
     });
     if (!res.ok) throw new Error('Failed to download file');

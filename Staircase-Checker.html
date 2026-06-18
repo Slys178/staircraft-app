@@ -1,0 +1,541 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staircase Production Checker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
+        .container { max-width: 1100px; width: 100%; background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); padding: 30px; height: fit-content; }
+        h1 { font-size: 28px; font-weight: 700; color: #1a2a3a; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .subtitle { color: #5a6a7a; font-size: 15px; margin-bottom: 25px; border-bottom: 2px solid #e8edf2; padding-bottom: 15px; }
+        .status-bar { background: #f8fafc; border-radius: 10px; padding: 15px 20px; margin-bottom: 25px; font-size: 14px; color: #1a2a3a; border: 1px solid #e2e8f0; min-height: 60px; }
+        .status-bar .line { padding: 4px 0; display: flex; align-items: center; gap: 10px; }
+        .status-bar .line .icon { font-size: 18px; width: 28px; text-align: center; }
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .input-section { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; align-items: center; }
+        .input-section label { font-weight: 600; font-size: 15px; color: #1a2a3a; }
+        .input-section input[type="text"] { flex: 1; min-width: 200px; padding: 10px 14px; border: 2px solid #d1d9e0; border-radius: 8px; font-size: 16px; font-weight: 500; transition: border 0.2s; }
+        .input-section input[type="text"]:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: #1a2a3a; color: white; }
+        .btn-primary:hover { background: #2a3a4a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,42,58,0.2); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-success { background: #059669; color: white; }
+        .btn-success:hover { background: #047857; }
+        .btn-outline { background: transparent; color: #1a2a3a; border: 2px solid #d1d9e0; }
+        .btn-outline:hover { background: #f0f4f8; border-color: #1a2a3a; }
+        .auth-section { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .auth-section .label { font-weight: 600; font-size: 14px; color: #1a2a3a; }
+        .drive-btn { padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; border: 2px solid #d1d9e0; background: #fff; color: #4a5a6a; transition: all 0.2s; }
+        .drive-btn:hover { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; }
+        .drive-btn.connected { background: #d1fae5; color: #065f46; border-color: #6ee7b7; cursor: default; }
+        .auth-section input[type="password"] { flex: 1; min-width: 200px; padding: 8px 14px; border: 2px solid #d1d9e0; border-radius: 6px; font-size: 14px; font-family: monospace; }
+        .results-container { margin-top: 25px; border-top: 2px solid #e8edf2; padding-top: 20px; }
+        .results-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px; }
+        .results-header h2 { font-size: 20px; color: #1a2a3a; }
+        .results-stats { display: flex; gap: 16px; font-size: 14px; }
+        .results-stats .stat { padding: 4px 12px; border-radius: 20px; background: #f0f4f8; }
+        .results-stats .stat.pass { background: #d1fae5; color: #065f46; }
+        .results-stats .stat.fail { background: #fee2e2; color: #991b1b; }
+        .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        table th { background: #f8fafc; padding: 12px 16px; text-align: left; font-weight: 600; color: #1a2a3a; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        table td { padding: 10px 16px; border-bottom: 1px solid #f0f4f8; vertical-align: middle; }
+        table tr:hover td { background: #fafbfc; }
+        table tr.fail td { background: #fef2f2; }
+        table tr.fail td:first-child { border-left: 4px solid #dc2626; }
+        table .badge { padding: 3px 12px; border-radius: 20px; font-weight: 600; font-size: 12px; display: inline-block; }
+        table .badge.pass { background: #d1fae5; color: #065f46; }
+        table .badge.fail { background: #fee2e2; color: #991b1b; }
+        .mismatch-detail { font-size: 12px; color: #991b1b; background: #fee2e2; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 2px; }
+        .errors-list { margin-top: 16px; padding: 16px 20px; background: #fef2f2; border-radius: 10px; border: 1px solid #fecaca; }
+        .errors-list h3 { color: #991b1b; font-size: 16px; margin-bottom: 8px; }
+        .errors-list ul { list-style: none; padding: 0; }
+        .errors-list li { padding: 4px 0; font-size: 14px; color: #7f1d1d; }
+        .errors-list li::before { content: "• "; font-weight: 700; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #6a7a8a; }
+        .empty-state .big-icon { font-size: 48px; margin-bottom: 12px; }
+        @media (max-width: 700px) {
+            .container { padding: 16px; }
+            .input-section, .auth-section { flex-direction: column; align-items: stretch; }
+            .input-section input[type="text"], .auth-section input[type="password"] { min-width: auto; }
+            .results-header { flex-direction: column; align-items: start; gap: 10px; }
+            table { font-size: 12px; }
+            table th, table td { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🏗️ Staircase Production Checker</h1>
+    <div class="subtitle">Automated QC — compare Post forms against M/S data</div>
+
+    <div class="auth-section" id="authSection">
+        <span class="label">🔑 Google Drive:</span>
+        <button class="drive-btn" id="driveBtn" onclick="connectDrive()">🔌 Click to Connect</button>
+        <span style="flex:1;"></span>
+        <span class="label" style="font-size:13px;">Anthropic API Key:</span>
+        <input type="password" id="apiKeyInput" placeholder="Paste your Anthropic API key (sk-ant-...)" />
+        <button class="btn btn-success" id="saveKeyBtn" style="padding:8px 16px; font-size:13px;" onclick="saveKey()">Save</button>
+    </div>
+
+    <div class="input-section">
+        <label for="loadInput">📋 Load Number:</label>
+        <input type="text" id="loadInput" placeholder="e.g. 114599" onkeydown="if(event.key==='Enter')findLoad()" />
+        <button class="btn btn-primary" id="findBtn" onclick="findLoad()">🔍 Find Load</button>
+        <button class="btn btn-outline" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+        <div class="line"><span class="icon">⏳</span><span>Ready — connect Google Drive, save your API key, then enter a load number.</span></div>
+    </div>
+
+    <div class="results-container">
+        <div class="empty-state" id="emptyState">
+            <div class="big-icon">📄</div>
+            <p>No results yet. Find a load to run checks.</p>
+        </div>
+        <div id="resultsContent" style="display:none;">
+            <div class="results-header">
+                <h2 id="resultsTitle">Results</h2>
+                <div class="results-stats">
+                    <span class="stat" id="totalStat">Total: 0</span>
+                    <span class="stat pass" id="passStat">✅ Pass: 0</span>
+                    <span class="stat fail" id="failStat">❌ Fail: 0</span>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Plot</th><th>Floor</th><th>Handing</th>
+                            <th>FFL</th><th>Customer</th><th>Site</th><th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+            <div id="errorsContainer"></div>
+            <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-outline" onclick="exportReport()">📥 Export Report</button>
+                <button class="btn btn-primary" onclick="findLoad()">🔄 Re-run Checks</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── CONFIG — REPLACE THIS WITH YOUR GOOGLE OAUTH CLIENT ID ──────────────────
+const CLIENT_ID = '221118850043-see1n0cqv920q0t1vsldnhfikmece9o8.apps.googleusercontent.com';
+// ────────────────────────────────────────────────────────────────────────────
+
+let accessToken = null;
+let tokenClient = null;
+let currentResults = null;
+let currentLoadNumber = null;
+
+// ── API KEY ──────────────────────────────────────────────────────────────────
+const savedKey = localStorage.getItem('anthropic_api_key');
+if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+
+function saveKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (key) {
+        localStorage.setItem('anthropic_api_key', key);
+        setStatusSuccess('API key saved.');
+    } else {
+        setStatusError('Please enter a valid API key.');
+    }
+}
+
+// ── STATUS HELPERS ───────────────────────────────────────────────────────────
+function setStatus(msg, icon='⏳') {
+    document.getElementById('statusBar').innerHTML =
+        `<div class="line"><span class="icon">${icon}</span><span>${msg}</span></div>`;
+}
+function setStatusSpinner(msg) {
+    document.getElementById('statusBar').innerHTML =
+        `<div class="line"><span class="spinner"></span><span>${msg}</span></div>`;
+}
+function setStatusSuccess(msg) {
+    document.getElementById('statusBar').innerHTML =
+        `<div class="line"><span class="icon">✅</span><span>${msg}</span></div>`;
+}
+function setStatusError(msg) {
+    document.getElementById('statusBar').innerHTML =
+        `<div class="line"><span class="icon">❌</span><span style="color:#991b1b;">${msg}</span></div>`;
+}
+
+// ── GOOGLE DRIVE AUTH ────────────────────────────────────────────────────────
+function initGoogleAuth() {
+    // Called by Google's onload callback once GIS has loaded
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        callback: (response) => {
+            if (response.error) {
+                setStatusError('Google sign-in failed: ' + response.error);
+                return;
+            }
+            accessToken = response.access_token;
+            const btn = document.getElementById('driveBtn');
+            btn.textContent = '✅ Connected';
+            btn.className = 'drive-btn connected';
+            btn.onclick = null;
+            setStatusSuccess('Google Drive connected! Now enter a load number.');
+        },
+    });
+    setStatus('Ready — click "Connect" to sign in to Google Drive, then save your API key.');
+}
+
+function connectDrive() {
+    if (!tokenClient) {
+        setStatusError('Google Identity Services not loaded yet. Wait a moment and try again.');
+        return;
+    }
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+// ── DRIVE HELPERS ────────────────────────────────────────────────────────────
+async function driveGet(endpoint) {
+    const res = await fetch('https://www.googleapis.com' + endpoint, {
+        headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || 'Drive API error ' + res.status);
+    }
+    return res.json();
+}
+
+async function findLoadFolder(loadNum) {
+    const q = encodeURIComponent(`name contains '${loadNum}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    const data = await driveGet(`/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=20`);
+    const folders = data.files || [];
+    return folders.find(f => f.name.startsWith(loadNum)) || folders[0] || null;
+}
+
+async function findFileInFolder(folderId, ...names) {
+    for (const name of names) {
+        const q = encodeURIComponent(`'${folderId}' in parents and name='${name}' and trashed=false`);
+        const data = await driveGet(`/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=5`);
+        if (data.files && data.files.length > 0) return data.files[0];
+    }
+    return null;
+}
+
+async function downloadFileAsBase64(fileId) {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+    if (!res.ok) throw new Error('Failed to download file');
+    const buffer = await res.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+}
+
+async function readSheetAsCSV(fileId) {
+    const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text%2Fcsv`,
+        { headers: { 'Authorization': 'Bearer ' + accessToken } }
+    );
+    if (!res.ok) throw new Error('Failed to read sheet');
+    return res.text();
+}
+
+// ── CSV PARSER ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = splitCSVLine(lines[0]);
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const vals = splitCSVLine(lines[i]);
+        const row = {};
+        headers.forEach((h, j) => row[h.trim()] = (vals[j] || '').trim());
+        rows.push(row);
+    }
+    return rows;
+}
+
+function splitCSVLine(line) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+        else cur += ch;
+    }
+    result.push(cur);
+    return result;
+}
+
+// ── M/S DATA PARSER ──────────────────────────────────────────────────────────
+// Correct column mapping (confirmed from raw paste):
+// Col A = blank icon — skip
+// Col B = Product
+// Col C = Regional office (Customer)
+// Col D = Site
+// Col E = Fix
+// Col F = Dwelling type
+// Col G = Plot number  ← strip anything after first space
+// Col H = Handing
+// Col I = Floor level
+// Col J = FFL         ← strip "mm"
+
+function parseMSRows(csvRows) {
+    const results = [];
+    for (const row of csvRows) {
+        // Try header-based lookup first, then positional
+        const plotRaw   = row['Plot'] || row['plot'] || getCol(row, 6);
+        const handing   = row['Hand'] || row['Handing'] || row['handing'] || getCol(row, 7);
+        const floorRaw  = row['Floor level'] || row['Floor Level'] || row['floor level'] || getCol(row, 8);
+        const fflRaw    = row['FFL'] || row['ffl'] || getCol(row, 9);
+        const site      = row['Site'] || row['site'] || getCol(row, 3);
+        const customer  = row['Regional office'] || row['Customer'] || row['customer'] || getCol(row, 2);
+
+        const plot = (plotRaw || '').trim().split(' ')[0].trim();
+        const floor = normFloor((floorRaw || '').trim());
+        const ffl   = (fflRaw || '').replace(/\s*mm\s*/gi, '').trim();
+
+        if (!plot) continue;
+        results.push({ plot, floor, handing: (handing||'').trim().toUpperCase(), ffl, site: (site||'').trim(), customer: (customer||'').trim() });
+    }
+    return results;
+}
+
+function getCol(row, idx) {
+    const vals = Object.values(row);
+    return vals[idx] || '';
+}
+
+function normFloor(raw) {
+    const u = raw.toUpperCase().replace(/\s/g, '');
+    if (u === 'G-1' || u === 'G-1ST') return 'G-1ST';
+    if (u === '1-2' || u === '1ST-2ND') return '1ST-2ND';
+    return raw;
+}
+
+// ── ANTHROPIC API — READ PDF ──────────────────────────────────────────────────
+async function readPDFWithClaude(pdfBase64, apiKey) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 4000,
+            messages: [{
+                role: 'user',
+                content: [
+                    {
+                        type: 'document',
+                        source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 }
+                    },
+                    {
+                        type: 'text',
+                        text: `This PDF contains staircase post forms, one per page. For every page extract:
+- plot: the plot number only (e.g. "111", "536", "58") — found next to the label PLOT at the bottom
+- floor: the floor level (e.g. "G-1ST", "1ST-2ND") — found at the bottom right
+- handing: LHWS or RHWS — found in the Type line at the top
+- ffl: the Finished Floor Level number only, no "mm" (e.g. "2657", "2635") — found top right
+
+Return ONLY a valid JSON array. No explanation. Example:
+[{"plot":"111","floor":"G-1ST","handing":"LHWS","ffl":"2657"}]`
+                    }
+                ]
+            }]
+        })
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || 'Anthropic API error ' + res.status);
+    }
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    const match = text.replace(/```json|```/g, '').match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Could not parse Claude response. Raw: ' + text.slice(0, 300));
+    return JSON.parse(match[0]);
+}
+
+// ── COMPARE ──────────────────────────────────────────────────────────────────
+function compareData(msRows, pdfForms) {
+    // Build lookup keyed by plot|floor
+    const lookup = {};
+    for (const r of msRows) {
+        const key = r.plot + '|' + r.floor;
+        lookup[key] = r;
+    }
+
+    return pdfForms.map(form => {
+        const floor = normFloor((form.floor || '').trim());
+        const key = form.plot + '|' + floor;
+        const ms = lookup[key];
+
+        if (!ms) return {
+            plot: form.plot, floor, handing: form.handing, ffl: form.ffl,
+            customer: '', site: '', status: 'FAIL',
+            errors: ['Plot + floor level not found in M/S data']
+        };
+
+        const errors = [];
+        const pHand = (form.handing || '').trim().toUpperCase();
+        const mHand = (ms.handing || '').trim().toUpperCase();
+        const pFFL  = (form.ffl || '').trim().replace(/mm/gi,'');
+        const mFFL  = (ms.ffl  || '').trim().replace(/mm/gi,'');
+
+        if (pHand && mHand && pHand !== mHand)
+            errors.push(`Handing: form=${pHand} M/S=${mHand}`);
+        if (pFFL && mFFL && pFFL !== mFFL)
+            errors.push(`FFL: form=${pFFL} M/S=${mFFL}`);
+
+        return {
+            plot: form.plot, floor, handing: pHand || mHand, ffl: pFFL || mFFL,
+            customer: ms.customer, site: ms.site,
+            status: errors.length ? 'FAIL' : 'PASS', errors
+        };
+    });
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function renderResults(results, loadNum) {
+    document.getElementById('emptyState').style.display = 'none';
+    const rc = document.getElementById('resultsContent');
+    rc.style.display = 'block';
+    document.getElementById('resultsTitle').textContent = 'Results for Load ' + loadNum;
+
+    const passes = results.filter(r => r.status === 'PASS').length;
+    const fails  = results.filter(r => r.status === 'FAIL').length;
+    document.getElementById('totalStat').textContent = 'Total: ' + results.length;
+    document.getElementById('passStat').textContent  = '✅ Pass: ' + passes;
+    document.getElementById('failStat').textContent  = '❌ Fail: ' + fails;
+
+    const sorted = [...results].sort((a, b) => {
+        const n = parseInt(a.plot) - parseInt(b.plot);
+        return n !== 0 ? n : a.floor.localeCompare(b.floor);
+    });
+
+    document.getElementById('resultsBody').innerHTML = sorted.map(r => `
+        <tr class="${r.status === 'FAIL' ? 'fail' : ''}">
+            <td><strong>${r.plot}</strong></td>
+            <td>${r.floor}</td>
+            <td>${r.handing}</td>
+            <td>${r.ffl}</td>
+            <td>${r.customer || '-'}</td>
+            <td>${r.site || '-'}</td>
+            <td>
+                <span class="badge ${r.status === 'PASS' ? 'pass' : 'fail'}">${r.status}</span>
+                ${r.errors && r.errors.length ? `<div class="mismatch-detail">${r.errors.join('; ')}</div>` : ''}
+            </td>
+        </tr>`).join('');
+
+    const failList = results.filter(r => r.status === 'FAIL');
+    document.getElementById('errorsContainer').innerHTML = failList.length
+        ? `<div class="errors-list"><h3>❌ ${failList.length} error(s) found</h3><ul>
+            ${failList.map(e => `<li><strong>Plot ${e.plot} ${e.floor}:</strong> ${e.errors.join('; ')}</li>`).join('')}
+           </ul></div>`
+        : `<div style="margin-top:16px;padding:16px 20px;background:#d1fae5;border-radius:10px;border:1px solid #6ee7b7;color:#065f46;">
+               ✅ All ${results.length} plots passed — no errors found.
+           </div>`;
+}
+
+// ── MAIN FLOW ─────────────────────────────────────────────────────────────────
+async function findLoad() {
+    const loadNum = document.getElementById('loadInput').value.trim().replace(/^#/, '');
+    if (!loadNum) { setStatusError('Please enter a load number.'); return; }
+
+    const apiKey = localStorage.getItem('anthropic_api_key');
+    if (!apiKey) { setStatusError('Please paste and save your Anthropic API key first.'); return; }
+    if (!accessToken) { setStatusError('Please connect to Google Drive first.'); return; }
+
+    document.getElementById('findBtn').disabled = true;
+
+    try {
+        setStatusSpinner(`Searching Drive for folder containing "${loadNum}"...`);
+        const folder = await findLoadFolder(loadNum);
+        if (!folder) { setStatusError(`No folder found containing "${loadNum}". Check the load number.`); return; }
+
+        setStatusSpinner(`Found folder: ${folder.name} — looking for M/S DATA sheet...`);
+        const sheetFile = await findFileInFolder(folder.id, 'M/S DATA', 'Load Data', 'MS DATA');
+        if (!sheetFile) { setStatusError('M/S DATA sheet not found in folder. Name it exactly "M/S DATA".'); return; }
+
+        setStatusSpinner('Reading M/S DATA...');
+        const csvText = await readSheetAsCSV(sheetFile.id);
+        const csvRows = parseCSV(csvText);
+        const msRows  = parseMSRows(csvRows);
+        if (!msRows.length) { setStatusError('No rows found in M/S DATA sheet. Check the sheet has data.'); return; }
+
+        setStatusSpinner(`Read ${msRows.length} rows from M/S DATA — looking for Posts.pdf...`);
+        const pdfFile = await findFileInFolder(folder.id, 'Posts.pdf', 'Post.pdf', 'posts.pdf');
+        if (!pdfFile) { setStatusError('Posts.pdf not found in folder. Name it exactly "Posts.pdf".'); return; }
+
+        setStatusSpinner('Downloading Posts.pdf...');
+        const pdfBase64 = await downloadFileAsBase64(pdfFile.id);
+
+        setStatusSpinner('Reading PDF with Claude AI — this may take 20–30 seconds...');
+        const pdfForms = await readPDFWithClaude(pdfBase64, apiKey);
+        if (!pdfForms.length) { setStatusError('No forms extracted from PDF. Check the file is a valid post form PDF.'); return; }
+
+        setStatusSpinner(`Extracted ${pdfForms.length} forms — comparing against M/S data...`);
+        const results = compareData(msRows, pdfForms);
+        currentResults = results;
+        currentLoadNumber = loadNum;
+
+        renderResults(results, loadNum);
+
+        const passes = results.filter(r => r.status === 'PASS').length;
+        const fails  = results.filter(r => r.status === 'FAIL').length;
+        setStatusSuccess(`Check complete — ${passes} passed, ${fails} failed.`);
+
+    } catch (e) {
+        console.error(e);
+        setStatusError('Error: ' + e.message);
+    } finally {
+        document.getElementById('findBtn').disabled = false;
+    }
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function exportReport() {
+    if (!currentResults) return;
+    let txt = `STAIRCASE PRODUCTION CHECKER — REPORT\nLoad: ${currentLoadNumber}\nDate: ${new Date().toLocaleString()}\n`;
+    txt += `Total: ${currentResults.length}  Pass: ${currentResults.filter(r=>r.status==='PASS').length}  Fail: ${currentResults.filter(r=>r.status==='FAIL').length}\n`;
+    txt += '='.repeat(60) + '\n\n';
+    for (const r of currentResults) {
+        txt += `${r.status==='PASS'?'✅ PASS':'❌ FAIL'} | Plot ${r.plot} ${r.floor} | ${r.handing} | FFL ${r.ffl}\n`;
+        if (r.errors?.length) txt += `    ERRORS: ${r.errors.join('; ')}\n`;
+    }
+    const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([txt], {type:'text/plain'})),
+        download: `check-${currentLoadNumber}.txt`
+    });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function clearAll() {
+    document.getElementById('loadInput').value = '';
+    currentResults = null; currentLoadNumber = null;
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('resultsContent').style.display = 'none';
+    setStatus('Ready — enter a load number and click "Find Load"', '⏳');
+}
+
+// ── GOOGLE GIS ONLOAD CALLBACK ────────────────────────────────────────────────
+// This function is called automatically by Google's script once it loads
+window.gapiLoaded = initGoogleAuth;
+</script>
+
+<!-- Google Identity Services — calls window.gapiLoaded when ready -->
+<script src="https://accounts.google.com/gsi/client" onload="initGoogleAuth()" async defer></script>
+
+</body>
+</html>

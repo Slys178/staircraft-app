@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Staircase Production Checker</title>
+    <title>Staircase Production Checker - Gemini</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
@@ -81,14 +80,14 @@
 <body>
 <div class="container">
     <h1>🏗️ Staircase Production Checker</h1>
-    <div class="subtitle">Automated QC — reads Post forms from Drive and checks against M/S snip</div>
+    <div class="subtitle">Automated QC — reads Post forms from Drive and checks against M/S snip (Gemini AI)</div>
 
     <div class="auth-section">
         <span class="label">🔑 Google Drive:</span>
         <button class="drive-btn" id="driveBtn" onclick="connectDrive()">🔌 Click to Connect</button>
         <span style="flex:1"></span>
-        <span class="label" style="font-size:13px">Anthropic API Key:</span>
-        <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
+        <span class="label" style="font-size:13px">Gemini API Key:</span>
+        <input type="password" id="apiKeyInput" placeholder="AIzaSy..." />
         <button class="btn-sm" onclick="saveKey()">Save Key</button>
     </div>
 
@@ -100,7 +99,7 @@
     </div>
 
     <div class="status-bar" id="statusBar">
-        <div class="line"><span>⏳</span><span>Ready — connect Google Drive, save your API key, then enter a load number.</span></div>
+        <div class="line"><span>⏳</span><span>Ready — connect Google Drive, save your Gemini API key, then enter a load number.</span></div>
     </div>
 
     <div id="filesFound" class="files-found" style="display:none"></div>
@@ -143,17 +142,18 @@ const CLIENT_ID = '221118850043-50en13nq72a9tmp0j24jbnl21nag541s.apps.googleuser
 
 let accessToken = null;
 let tokenClient = null;
-let allResults = {};   // keyed by section e.g. 'POST', 'WINDERS', 'BULLNOSE'
+let allResults = {};
 let currentLoadNumber = null;
 let activeSection = null;
 
 // ── API KEY ───────────────────────────────────────────────────────────────────
-const savedKey = localStorage.getItem('anthropic_api_key');
+const savedKey = localStorage.getItem('gemini_api_key');
 if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+
 function saveKey() {
     const k = document.getElementById('apiKeyInput').value.trim();
-    if (k) { localStorage.setItem('anthropic_api_key', k); setStatusSuccess('API key saved.'); }
-    else setStatusError('Please enter a valid API key.');
+    if (k) { localStorage.setItem('gemini_api_key', k); setStatusSuccess('Gemini API key saved.'); }
+    else setStatusError('Please enter a valid Gemini API key.');
 }
 
 // ── STATUS ────────────────────────────────────────────────────────────────────
@@ -236,27 +236,57 @@ async function downloadBase64(fileId) {
     return btoa(bin);
 }
 
-// ── CLAUDE API ────────────────────────────────────────────────────────────────
-async function callClaude(contentArray, maxTokens = 4000) {
-    const apiKey = localStorage.getItem('anthropic_api_key');
-    if (!apiKey) throw new Error('No Anthropic API key saved.');
-    // Use a CORS proxy to avoid browser blocking of direct Anthropic API calls
-    const endpoint = 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages');
-    const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages: [{ role: 'user', content: contentArray }] })
-    });
-    if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.error?.message || 'Anthropic API error ' + res.status);
+// ── GEMINI API ──────────────────────────────────────────────────────────────
+async function callGemini(contentArray, maxTokens = 4000) {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) throw new Error('No Gemini API key saved. Please paste and save your key.');
+    
+    // Build prompt from content array
+    let prompt = '';
+    let imageData = null;
+    let imageMime = null;
+    let isPDF = false;
+    
+    for (const item of contentArray) {
+        if (item.type === 'text') {
+            prompt += item.text + ' ';
+        } else if (item.type === 'image' || item.type === 'document') {
+            imageData = item.source.data;
+            imageMime = item.source.media_type;
+            if (imageMime === 'application/pdf') isPDF = true;
+        }
     }
-    const data = await res.json();
-    return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    
+    // For PDFs, we need to send them as inline_data
+    // Gemini 2.0 Flash can handle PDFs in base64
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    
+    const parts = [{ text: prompt }];
+    if (imageData) {
+        parts.push({
+            inline_data: {
+                mime_type: imageMime || 'image/png',
+                data: imageData
+            }
+        });
+    }
+    
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: parts }]
+        })
+    });
+    
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error?.message || `Gemini API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return text;
 }
 
 function parseJSON(text) {
@@ -267,8 +297,8 @@ function parseJSON(text) {
 
 // ── READ M/S SNIP ─────────────────────────────────────────────────────────────
 async function readMSSnip(snipBase64, mimeType) {
-    setStatusSpinner('Reading M/S snip with AI...');
-    const text = await callClaude([
+    setStatusSpinner('Reading M/S snip with Gemini AI...');
+    const text = await callGemini([
         { type: 'image', source: { type: 'base64', media_type: mimeType, data: snipBase64 } },
         { type: 'text', text: `This image is a screenshot of a Management System (M/S) showing a load of staircase orders.
 Extract every row of data. The columns are (in order, column A is blank/icon — skip it):
@@ -290,7 +320,7 @@ Return ONLY a valid JSON array, no explanation:
 
 // ── READ POST PDF ─────────────────────────────────────────────────────────────
 async function readPostPDF(pdfBase64) {
-    const text = await callClaude([
+    const text = await callGemini([
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
         { type: 'text', text: `This PDF contains staircase post forms, one per page. For every page extract:
 - plot: plot number only (found next to label PLOT at the bottom, e.g. "111", "536")
@@ -345,7 +375,6 @@ function renderResults() {
     const sections = Object.keys(allResults);
     if (!activeSection || !allResults[activeSection]) activeSection = sections[0];
 
-    // Build section tabs
     const tabsEl = document.getElementById('sectionTabs');
     tabsEl.innerHTML = sections.map(s => {
         const res = allResults[s];
@@ -398,7 +427,6 @@ function switchSection(s) {
     renderResults();
 }
 
-// ── FILE PILLS ────────────────────────────────────────────────────────────────
 function showFilePills(found) {
     const el = document.getElementById('filesFound');
     el.style.display = 'flex';
@@ -411,8 +439,8 @@ function showFilePills(found) {
 async function findLoad() {
     const loadNum = document.getElementById('loadInput').value.trim().replace(/^#/, '');
     if (!loadNum) { setStatusError('Please enter a load number.'); return; }
-    const apiKey = localStorage.getItem('anthropic_api_key');
-    if (!apiKey) { setStatusError('Please save your Anthropic API key first.'); return; }
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) { setStatusError('Please save your Gemini API key first.'); return; }
     if (!accessToken) { setStatusError('Please connect to Google Drive first.'); return; }
 
     document.getElementById('findBtn').disabled = true;
@@ -421,16 +449,13 @@ async function findLoad() {
     currentLoadNumber = loadNum;
 
     try {
-        // 1. Find folder
         setStatusSpinner(`Searching shared drive for load ${loadNum}...`);
         const folder = await findLoadFolder(loadNum);
         if (!folder) { setStatusError(`No folder found containing "${loadNum}". Check the load number.`); return; }
 
-        // 2. List contents
         setStatusSpinner(`Found: ${folder.name} — reading folder contents...`);
         const files = await listFolderContents(folder.id);
 
-        // 3. Identify files
         const snipFile  = findFile(files, 'SNIP.png', 'SNIP.jpg', 'snip.png', 'snip.jpg', 'Snip.png', 'Snip.jpg');
         const postFiles = [
             findFile(files, 'POST A.pdf', 'Posts.pdf', 'POST.pdf', 'POSTS.pdf', 'Post.pdf'),
@@ -458,24 +483,21 @@ async function findLoad() {
         if (!snipFile) { setStatusError('SNIP.png not found in folder. Make sure the M/S snip is saved as SNIP.png.'); return; }
         if (!postFiles.length) { setStatusError('No POST files found. Expected POST A.pdf and/or POST B.pdf.'); return; }
 
-        // 4. Read M/S snip
         setStatusSpinner('Downloading M/S snip...');
         const snipMime   = snipFile.name.toLowerCase().endsWith('.jpg') ? 'image/jpeg' : 'image/png';
         const snipBase64 = await downloadBase64(snipFile.id);
         const msRows     = await readMSSnip(snipBase64, snipMime);
         setStatusSuccess(`M/S data: ${msRows.length} rows loaded.`);
 
-        // 5. Process POST files
         for (const pf of postFiles) {
             const label = pf.name.toUpperCase().includes('B') && postFiles.length > 1 ? 'POST B' : postFiles.length > 1 ? 'POST A' : 'POSTS';
-            setStatusSpinner(`Reading ${pf.name} with AI (this may take 20–30 seconds)...`);
+            setStatusSpinner(`Reading ${pf.name} with Gemini AI (this may take 20–30 seconds)...`);
             const base64  = await downloadBase64(pf.id);
             const forms   = await readPostPDF(base64);
             const results = compareData(msRows, forms);
             allResults[label] = results;
         }
 
-        // 6. Process WINDER files (optional)
         for (const wf of winderFiles) {
             const label = wf.name.toUpperCase().includes('B') && winderFiles.length > 1 ? 'WINDERS B' : winderFiles.length > 1 ? 'WINDERS A' : 'WINDERS';
             setStatusSpinner(`Reading ${wf.name}...`);
@@ -485,7 +507,6 @@ async function findLoad() {
             allResults[label] = results;
         }
 
-        // 7. Process BULLNOSE files (optional)
         for (const bf of bullnoseFiles) {
             const label = bf.name.toUpperCase().includes('B') && bullnoseFiles.length > 1 ? 'BULLNOSE B' : bullnoseFiles.length > 1 ? 'BULLNOSE A' : 'BULLNOSE';
             setStatusSpinner(`Reading ${bf.name}...`);
@@ -495,7 +516,6 @@ async function findLoad() {
             allResults[label] = results;
         }
 
-        // 8. Render
         activeSection = Object.keys(allResults)[0];
         renderResults();
 
@@ -512,7 +532,6 @@ async function findLoad() {
     }
 }
 
-// ── EXPORT ────────────────────────────────────────────────────────────────────
 function exportReport() {
     if (!Object.keys(allResults).length) return;
     const allRes = Object.values(allResults).flat();

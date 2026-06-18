@@ -240,7 +240,9 @@ async function downloadBase64(fileId) {
 async function callClaude(contentArray, maxTokens = 4000) {
     const apiKey = localStorage.getItem('anthropic_api_key');
     if (!apiKey) throw new Error('No Anthropic API key saved.');
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    // Use a CORS proxy to avoid browser blocking of direct Anthropic API calls
+    const endpoint = 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages');
+    const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
